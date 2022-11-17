@@ -29,25 +29,6 @@ let parse (s : string) : expr =
   let ast = Parser.prog Lexer.read lexbuf in
   ast
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 let rec trace1 = function
     True -> Succ(Zero)
   | False -> Zero 
@@ -79,23 +60,6 @@ let rec trace1 = function
   | IsZero(e) -> let e' = trace1 e in IsZero(e')
   | _ -> raise NoRuleApplies
 ;;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 let rec trace e = try
     let e' = trace1 e
