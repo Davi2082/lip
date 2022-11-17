@@ -58,7 +58,7 @@ let rec last = function
   | [x] -> x
   | _::l -> last l
 
-(* convert is_nv value to int *)
+(* convert isnumericalv value to int *)
 let rec int_of_nat = function
     Zero -> 0
   | Succ n -> 1 + int_of_nat n
@@ -66,7 +66,7 @@ let rec int_of_nat = function
 
 (* reduce expression with small-step semantics and convert into value option *)
 let weval_smallstep e = match last (trace e) with
-  | e when is_nv e -> Some (int_of_nat e)
+  | e when isnumericalv e -> Some (int_of_nat e)
   | _ -> None
 
 let%test _ =
