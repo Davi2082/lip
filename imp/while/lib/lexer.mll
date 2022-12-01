@@ -40,7 +40,6 @@ rule read =
   | "(" { LPAREN }
   | ")" { RPAREN }
   
+  | id { ID (Lexing.lexeme lexbuf) }
+  | const { CONST ((Lexing.lexeme lexbuf)) }
   | eof { EOF }
-
-  | id { VAR (Lexing.lexeme lexbuf) }
-  | const { CONST (int_of_string(Lexing.lexeme lexbuf)) }

@@ -2,13 +2,13 @@
 open Ast
 %}
 
-%token ID
+
 
 %token TRUE
 %token FALSE
 
-%token VAR
-%token CONST
+%token <string> ID
+%token <string> CONST
 
 %token NOT
 %token AND
@@ -37,10 +37,14 @@ open Ast
 
 %token EOF
 
-%nonassoc ELSE
+%left SEQ
+%nonassoc ELSE DO
 %left OR
 %left AND
-%left NOT
+%nonassoc NOT
+%left EQ LEQ
+%left ADD SUB
+%left MUL
 
 %start <cmd> prog
 
@@ -54,8 +58,8 @@ expr:
   | TRUE { True }
   | FALSE { False }
 
-  | x = VAR; { Var(x) }
-  | n = CONST; { Const(n) }
+  | x = ID; { Var(x) }
+  | n = CONST; { Const(int_of_string n) }
 
   | NOT; e = expr; { Not (e) }
   | e1 = expr; AND; e2 = expr; { And(e1, e2) }
@@ -69,11 +73,11 @@ expr:
   | e1 = expr; LEQ; e2 = expr; { Leq(e1, e2) }
 
   | LPAREN; e = expr; RPAREN { e }
-;
+;;
 
 cmd:
   | SKIP; { Skip }
-  | x = VAR; ASSIGN; e = CONST; { Assign(x, e) }
+  | x = ID; ASSIGN; e = expr; { Assign(x, e) }
   | c1 = cmd; SEQ; c2 = cmd; { Seq(c1, c2) }
 
   | IF; e1 = expr; THEN; c1 = cmd; ELSE; c2 = cmd; { If(e1, c1, c2) }

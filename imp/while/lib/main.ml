@@ -1,106 +1,100 @@
 open Ast
-
-type exprval = Bool of bool | Nat of int        (* value of an expression *)
-type state = ide -> exprval                     (* state = map from identifiers to expression values *)
-type conf = St of state | Cmd of cmd * state    (* configuration = state | (command,state) *)
-
-exception NoRuleApplies
-
-(* string_of_val : exprval -> string *)
-string_of_val = 
-
-(* string_of_expr : expr -> string *)
-string_of_expr = 
-
-(* string_of_cmd : cmd -> string *)
-string_of_cmd = 
-
-(* string_of_state : state -> ide list -> string *)
-string_of_state = 
-
-(* string_of_conf : ide list -> conf -> string *)
-string_of_conf = 
-
-(* string_of_trace : ide list -> conf list -> string *)
-string_of_trace =  
+open Types
 
 
-
-
-
-let rec string_of_expr = function
-    True -> "True"
-  | False -> "False"
-  | If(e0,e1,e2) -> "If(" ^ (string_of_expr e0) ^ "," ^ (string_of_expr e1) ^ "," ^ (string_of_expr e2) ^ ")"
-  | Not(e) -> "Not(" ^ (string_of_expr e) ^ ")"
-  | Or(e1, e2) -> "Or(" ^ (string_of_expr e1) ^ "," ^ (string_of_expr e2) ^ ")"
-  | And(e1,e2) -> "And(" ^ (string_of_expr e1) ^ "," ^ (string_of_expr e2) ^ ")"
-;;
-
-let rec string_of_cmd = function
-    True -> "True"
-  | False -> "False"
-  | If(e0,e1,e2) -> "If(" ^ (string_of_expr e0) ^ "," ^ (string_of_expr e1) ^ "," ^ (string_of_expr e2) ^ ")"
-  | Not(e) -> "Not(" ^ (string_of_expr e) ^ ")"
-  | Or(e1, e2) -> "Or(" ^ (string_of_expr e1) ^ "," ^ (string_of_expr e2) ^ ")"
-  | And(e1,e2) -> "And(" ^ (string_of_expr e1) ^ "," ^ (string_of_expr e2) ^ ")"
-;;
-
-let parse (s : string) : expr =
+let parse (s : string) : cmd =
   let lexbuf = Lexing.from_string s in
   let ast = Parser.prog Lexer.read lexbuf in
   ast
-;;
 
-  let rec trace1 = function
-    True -> Succ(Zero)
-  | False -> Zero 
-  | If(Succ(Zero),e1,_) -> e1
-  | If(Zero,_,e2) -> e2
-  | If(e0,e1,e2) -> let e0' = trace1 e0 in If(e0',e1,e2)
-  | Not(Succ(Zero)) -> Zero
-  | Not(Zero) -> Succ(Zero)
-  | Not(e) -> let e' = trace1 e in Not(e')
 
-  | Or(Succ(e),_) when isnumericalv(e) -> True
-  | Or(_,Succ(e)) when isnumericalv(e) -> True
-  | Or(Zero,Zero) -> False
-  | Or(Zero,e2) -> let e2' = trace1 e2 in Or(Zero,e2')
-  | Or(e1,e2) -> let e1' = trace1 e1 in Or(e1',e2)
+(******************************************************************************)
+(*                       Big-step semantics of expressions                    *)
+(******************************************************************************)
 
-  | And(Zero,_) -> False
-  | And(_,Zero) -> False
-  | And(Succ(e1),Succ(e2)) when(isnumericalv(e1) && isnumericalv(e2)) -> True
-  | And(Succ(e1),e2) when(isnumericalv(e1)) -> let e2' = trace1 e2 in And(Succ(Zero),e2')
-  | And(e1,e2) -> let e1' = trace1 e1 in And(e1',e2)
+let rec eval_expr st = function
+    True -> Bool true
+  | False -> Bool false
+  | Var x -> st x
+  | Const n -> Nat n
+  | Not(e) -> (match eval_expr st e with
+        Bool b -> Bool(not b)
+      | _ -> raise (TypeError "Not")
+    )
+  | And(e1,e2) -> (match (eval_expr st e1,eval_expr st e2)  with
+        (Bool b1,Bool b2) -> Bool(b1 && b2)
+      | _ -> raise (TypeError "And")
+    )
+  | Or(e1,e2) -> (match (eval_expr st e1,eval_expr st e2)  with
+        (Bool b1,Bool b2) -> Bool(b1 || b2)
+      | _ -> raise (TypeError "Or")
+    )
+  | Add(e1,e2) -> (match (eval_expr st e1,eval_expr st e2)  with
+        (Nat n1,Nat n2) -> Nat(n1 + n2)
+      | _ -> raise (TypeError "Add")
+    )    
+  | Sub(e1,e2) -> (match (eval_expr st e1,eval_expr st e2)  with
+        (Nat n1,Nat n2) when n1>=n2 -> Nat(n1 - n2)
+      | _ -> raise (TypeError "Sub")
+    )
+  | Mul(e1,e2) -> (match (eval_expr st e1,eval_expr st e2)  with
+        (Nat n1,Nat n2) -> Nat(n1 * n2)
+      | _ -> raise (TypeError "Add")
+    )        
+  | Eq(e1,e2) -> (match (eval_expr st e1,eval_expr st e2)  with
+        (Nat n1,Nat n2) -> Bool(n1 = n2)
+      | _ -> raise (TypeError "Eq")
+    )    
+  | Leq(e1,e2) -> (match (eval_expr st e1,eval_expr st e2)  with
+        (Nat n1,Nat n2) -> Bool(n1 <= n2)
+      | _ -> raise (TypeError "Leq")
+    )          
 
-  | Succ(e) -> let e' = trace1 e in Succ(e')
-  | Pred(Zero) -> False
-  | Pred(Succ(e)) -> e
-  | Pred(e) -> let e' = trace1 e in Pred(e')
-  | IsZero(Zero) -> True
-  | IsZero(Succ(e)) when isnumericalv(e) -> False
-  | IsZero(e) -> let e' = trace1 e in IsZero(e')
-  | _ -> raise NoRuleApplies
-;;
+(******************************************************************************)
+(*                      Small-step semantics of commands                      *)
+(******************************************************************************)
+  
+let bot = fun x -> raise (UnboundVar x)
 
-let rec trace e = try
-    let e' = trace1 e
-    in e::(trace e')
-  with NoRuleApplies -> [e]
-;;
+let bind f x v = fun 
+  y -> if y=x then v else f y
 
-let rec eval = function
-    True -> 1
-  | False -> 0
+let rec trace1 = function
+    St _ -> raise NoRuleApplies
+  | Cmd(c,st) -> match c with
+      Skip -> St st
+    | Assign(x,e) -> let v = eval_expr st e in St (bind st x v)
+    | Seq(c1,c2) -> (match trace1 (Cmd(c1,st)) with
+          St st1 -> Cmd(c2,st1)
+        | Cmd(c1',st1) -> Cmd(Seq(c1',c2),st1))
+    | If(e,c1,c2) -> (match eval_expr st e with
+          Bool true -> Cmd(c1,st)
+        | Bool false -> Cmd(c2,st)
+        | _ -> raise (TypeError "If"))
+    | While(e,c) ->  (match eval_expr st e with
+          Bool true -> Cmd(Seq(c,While(e,c)),st)
+        | Bool false -> St st
+        | _ -> raise (TypeError "While"))
 
-  | If(e0,e1,e2) -> if (eval e0) > 0 then (eval e1) else (eval e2)
 
-  | Not(e) -> if (eval e) > 0 then 0 else 1
+(**********************************************************************
+ trace_rec : int-> conf -> conf list
 
-  | Or(e1,e2) -> if(eval e1 + eval e2) > 0 then 1 else 0
+ Usage: trace_rec n t performs n steps of the small-step semantics
 
-  | And(e1,e2) -> if(eval e1 * eval e2) > 0 then 1 else 0
-;;
+ **********************************************************************)
 
-(*eval_expr : state -> expr -> exprval*)
+let rec trace_rec n t =
+  if n<=0 then [t]
+  else try
+      let t' = trace1 t
+      in t::(trace_rec (n-1) t')
+    with NoRuleApplies -> [t]
+
+(**********************************************************************
+ trace : int -> cmd -> conf list
+
+ Usage: trace n t performs n steps of the small-step semantics
+ **********************************************************************)
+
+let trace n t = trace_rec n (Cmd(t,bot))
