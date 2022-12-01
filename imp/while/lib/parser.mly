@@ -76,7 +76,7 @@ cmd:
   | x = VAR; ASSIGN; e = CONST; { Assign(x, e) }
   | c1 = cmd; SEQ; c2 = cmd; { Seq(c1, c2) }
 
-  | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr; { If(e1, e2, e3) }
+  | IF; e1 = expr; THEN; c1 = cmd; ELSE; c2 = cmd; { If(e1, c1, c2) }
   | WHILE; e = expr; DO; c = cmd; { While(e, c) }
 
   | LPAREN; c = cmd; RPAREN { c }
