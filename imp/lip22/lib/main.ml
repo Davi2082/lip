@@ -160,12 +160,20 @@ let rec eval_expr (e:expr) (env:env) (mem:mem) : int =
   match e with
     True -> 1
   | False -> 0
-  | Var x -> let IVar l = lookup x env in mem l
-  | ArrayEl (x, i) -> let IVar l = lookup x env in 
-                      let dim = fst (mem l) in (* com'è possibile che cerchiamo una coppia in un intero? *)
-                      let index = eval_expr i env mem in
-                      if index >= dim 
-                        then failwith "Array index out of bounds" else mem (l + index + 1)
+  | Var x -> (match env x with
+    | IVar l -> mem l
+    | _ -> failwith "Variable not found")
+  | ArrayEl(id, e) -> (match env id with
+    | IArr(loc, size) -> 
+      (* Recuperiamo il valore dell'espressione e, che dovrebbe essere un intero positivo *)
+      let index = eval_expr e env mem in
+      (* Recuperiamo l'oggetto IArr associato all'identificatore id dall'ambiente env *)
+      let IArr(loc, size) = env id in
+      (* Controlliamo che l'indice sia valido, ovvero che sia compreso tra 0 e size-1 *)
+      if index < 0 || index >= size then failwith "Array index out of bounds"
+      (* Restituiamo il valore presente nella memoria alla locazione loc+index *)
+      else mem (loc+index)
+    | _ -> failwith "Array not found")
   | Const n -> n
   | Not e -> let n = eval_expr e env mem in if n = 0 then 1 else 0
   | And (e1, e2) -> let n1 = eval_expr e1 env mem in if n1 = 0 then 0 else eval_expr e2 env mem
@@ -175,8 +183,6 @@ let rec eval_expr (e:expr) (env:env) (mem:mem) : int =
   | Mul (e1, e2) -> eval_expr e1 env mem * eval_expr e2 env mem
   | Eq (e1, e2) -> if eval_expr e1 env mem = eval_expr e2 env mem then 1 else 0
   | Leq (e1, e2) -> if eval_expr e1 env mem <= eval_expr e2 env mem then 1 else 0
-  | Call _ -> failwith "Cannot evaluate a function call in eval_expr"
-  | CallExec _ -> failwith "Cannot evaluate a function execution in eval_expr"
 
 
 let rec eval_cmd (c:cmd) (env:env) (mem:mem) : env * mem = 
@@ -194,6 +200,62 @@ let rec eval_cmd (c:cmd) (env:env) (mem:mem) : env * mem =
                       then eval_cmd c1 env mem else eval_cmd c2 env mem
   | Repeat c -> try let (env', mem') = eval_cmd c env mem 
                     in eval_cmd (Repeat c) env' mem' with Break -> (env, mem)
+
+
+let rec eval_cmd (c:cmd) (env:env) (mem:mem) : env * mem =
+  match c with
+  | Skip -> (env, mem)
+  | Break -> failwith "break statement not allowed outside repeat forever loop"
+  | Assign (x, e) ->
+      let v = eval_expr e env mem in
+      let loc = try env x with Not_found -> failwith ("undeclared variable " ^ x) in
+      let mem' = match loc with
+        | IVar l -> mem l <- v; mem
+        | _ -> failwith (x ^ " is not a variable") in
+      (env, mem')
+  | Assign_a (ArrayEl (x, i), e) ->
+      let v = eval_expr e env mem in
+      let loc, size = try env x with Not_found -> failwith ("undeclared array " ^ x) in
+      let i = eval_expr i env mem in
+      if i >= size then failwith "array index out of bounds" else
+      let l = loc + i in
+      let mem' = mem l <- v; mem in
+      (env, mem')
+  | CSeq (c1, c2) ->
+      let env', mem' = eval_cmd c1 env mem in
+      eval_cmd c2 env' mem'
+  | Block (dv, c) ->
+      let env' = extend_env env dv in
+      eval_cmd c env' mem
+  | If (e, c1, c2) ->
+      if eval_expr e env mem <> 0 then eval_cmd c1 env mem else eval_cmd c2 env mem
+  | Repeat c ->
+      let rec repeat env mem =
+        let env', mem' = eval_cmd c env mem in
+        repeat env' mem'
+      in repeat env mem
+  | Call (p, pa) ->
+      let IProc (pf, c) = try env p with Not_found -> failwith ("undeclared procedure " ^ p) in
+      let env' = match pf, pa with
+        | Val x, e -> let v = eval_expr e env mem in extend_env env (IntVar x, IVar v)
+        | Ref x, e ->
+            let l = try env x with Not_found -> failwith ("undeclared variable " ^ x) in
+            let loc = match l with
+              | IVar l -> l
+              | _ -> failwith (x ^ " is not a variable") in
+            extend_env env (IntVar x, IVar loc)
+      in
+      let env'', mem'' = eval_cmd c env' mem in
+      (env'', mem'')
+  | CallExec (c, e) ->
+      let v = eval_expr e env mem in
+      let env' = extend_env env (IntVar "return", IVar v) in
+      eval_cmd c env' mem
+
+
+
+
+
 
 
 let rec eval_par_f (pf:par_f) (env:env) (mem:mem) (pa:par_a) : env = 

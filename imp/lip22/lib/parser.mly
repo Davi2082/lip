@@ -38,10 +38,9 @@ open Ast
 %token REF
 %token INT
 %token ARRAY
-%token RETURN
 
 %left SEQ
-%nonassoc ELSE DO
+%nonassoc ELSE
 %left OR
 %left AND
 %nonassoc NOT
@@ -82,20 +81,24 @@ cmd:
   | x = ID; TAKES; e=expr; { Assign(x,e) }
   | x = ID; LBRACKET; e1=expr; RBRACKET; TAKES; e2=expr; { Assign(ArrayEl(x,e1),e2) }
   | f = ID; LPAREN; pa=expr; RPAREN { Call(f,pa) }
-  | c1 = cmd; CSEQ; c2 = cmd; { CSeq(c1,c2) }
+  | c1 = cmd; SEQ; c2 = cmd; { CSeq(c1,c2) }
   | LBRACE; d = decl_v; SEQ; c = cmd; RBRACE; { Block(d,c) }
-
-decl_v:
-  | INT; x = ID { IntVar(x) }
-  | ARRAY; x = ID; LBRACKET; dim=int; RBRACKET; { ArrayDecl(x,dim) }
-  | d1 = decl_v; SEQ; d2=decl_v { DVSeq(d1,d2) }
-  | { NullVar }
+;
 
 par_f:
   | VAL; x = ID; { Val(x) }
   | REF; x = ID; { Ref(x) }
+;
+
+decl_v:
+  | INT; x = ID { IntVar(x) }
+  | ARRAY; x = ID; LBRACKET; dim=expr; RBRACKET; { ArrayDecl(x,dim) }
+  | d1 = decl_v; SEQ; d2=decl_v; { DVSeq(d1,d2) }
+  | { NullVar }
+;
 
 decl_p:
   | PROC; p = ID; LPAREN; x = par_f; RPAREN; LBRACE; c = cmd; RBRACE { Proc(p,x,c) }
-  | d1 = decl_p; SEQ; d2 = decl_p { DPSeq(d1,d2) } 
+  | d1 = decl_p; SEQ; d2 = decl_p; { DPSeq(d1,d2) } 
   | { NullProc }
+;
