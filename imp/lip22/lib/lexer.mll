@@ -13,6 +13,8 @@ rule read =
   | white { read lexbuf }  
   | "(" { LPAREN }
   | ")" { RPAREN }
+  | "[" { LBRACKET }
+  | "]" { RBRACKET }
   | "{" { LBRACE }
   | "}" { RBRACE }
   | "true" { TRUE }
@@ -26,16 +28,19 @@ rule read =
   | "=" { EQ }
   | "<=" { LEQ }
   | "skip" { SKIP }
+  | "break" { BREAK }
   | ":="  { TAKES }
   | ";"  { SEQ }
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }
-  | "while" { WHILE }
-  | "do" { DO }
+  | "repeat" { REPEAT }
+  | "forever" { FOREVER }
   | "proc" { PROC }
+  | "val" { VAL }
+  | "ref" { REF }
   | "int" { INT }
-  | "return" { RETURN }
+  | "array" { ARRAY }
   | id { ID (Lexing.lexeme lexbuf) }
   | num { CONST (Lexing.lexeme lexbuf) }  
   | eof { EOF }
