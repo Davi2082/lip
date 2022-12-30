@@ -1,6 +1,6 @@
-type ide = string
+type ide = string ;;
 
-type par_f = Val of ide | Ref of ide
+type par_f = Val of ide | Ref of ide ;;
 
 type expr =
   | True
@@ -16,19 +16,16 @@ type expr =
   | Mul of expr * expr
   | Eq of expr * expr
   | Leq of expr * expr
+;;
 
-and decl_v =
+type decl_v =
   | NullVar
+  | ArrayDecl of ide * int
   | IntVar of ide
   | DVSeq of decl_v * decl_v
-  | ArrayDecl of ide * expr
+;;
 
-and decl_p =
-  | NullProc
-  | Proc of ide * par_f * cmd
-  | DPSeq of decl_p * decl_p
-          
-and cmd =
+type cmd =
   | Skip
   | Break
   | Assign of ide * expr
@@ -39,7 +36,14 @@ and cmd =
   | Repeat of cmd
   | Call of ide * expr    
   | CallExec of cmd * expr (* Runtime only: c is the cmd being reduced, e is the return expr *)
+;;
 
-type par_a = expr 
+type decl_p =                       
+  | NullProc                      
+  | Proc of ide * par_f * cmd   
+  | DPSeq of decl_p * decl_p  
+;;
 
-type prog = Prog of decl_p * decl_v * cmd
+type par_a = expr ;;
+
+type prog = Prog of decl_p * decl_v * cmd ;;

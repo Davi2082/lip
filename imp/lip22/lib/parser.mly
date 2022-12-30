@@ -52,9 +52,6 @@ open Ast
 
 %%
 
-prog:
-  | dv = decl_v; dp = decl_p; c = cmd; EOF { Prog(dv,dp,c) }
-;
 
 expr:
   | n = CONST { Const(int_of_string n) }
@@ -73,6 +70,13 @@ expr:
   | LPAREN; e = expr; RPAREN { e }
 ;
 
+decl_v:
+  | INT; x = ID; { IntVar(x) }
+  | ARRAY; x = ID; LBRACKET; dim=CONST; RBRACKET; { ArrayDecl(x,dim) }
+  | d1 = decl_v; SEQ; d2=decl_v; { DVSeq(d1,d2) }
+  | { NullVar }
+;
+
 cmd:
   | SKIP { Skip }
   | BREAK { Break }
@@ -83,6 +87,7 @@ cmd:
   | f = ID; LPAREN; pa=expr; RPAREN { Call(f,pa) }
   | c1 = cmd; SEQ; c2 = cmd; { CSeq(c1,c2) }
   | LBRACE; d = decl_v; SEQ; c = cmd; RBRACE; { Block(d,c) }
+  | LPAREN; c = cmd; RPAREN; { c }
 ;
 
 par_f:
@@ -90,15 +95,12 @@ par_f:
   | REF; x = ID; { Ref(x) }
 ;
 
-decl_v:
-  | INT; x = ID { IntVar(x) }
-  | ARRAY; x = ID; LBRACKET; dim=expr; RBRACKET; { ArrayDecl(x,dim) }
-  | d1 = decl_v; SEQ; d2=decl_v; { DVSeq(d1,d2) }
-  | { NullVar }
-;
-
 decl_p:
-  | PROC; p = ID; LPAREN; x = par_f; RPAREN; LBRACE; c = cmd; RBRACE { Proc(p,x,c) }
+  | PROC; p = ID; LPAREN; x = par_f; RPAREN; LBRACE; c = CONST; RBRACE { Proc(p,x,c) }
   | d1 = decl_p; SEQ; d2 = decl_p; { DPSeq(d1,d2) } 
   | { NullProc }
+;
+
+prog:
+  | dv = decl_v; dp = decl_p; c = cmd; EOF { Prog(dv,dp,c) }
 ;
